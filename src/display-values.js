@@ -9,8 +9,6 @@ function formatRateLimits(response) {
   const single = formatPrimaryRateLimits(response);
   single.tone = quotaTone(single.percent);
   const snapshot = pickCodexSnapshot(response);
-  const planType = String(snapshot?.planType ?? response?.planType ?? '').toLowerCase();
-  if (planType !== 'plus') return { ...single, mode: 'single', rings: null };
   const windows = [snapshot?.primary, snapshot?.secondary].filter(Boolean);
   function ring(key, label, match) {
     const window = windows.find(match);
@@ -23,7 +21,8 @@ function formatRateLimits(response) {
   const rings = [
     ring('five-hour', '5h额度', w => w.windowDurationMins === 300),
     ring('weekly', '周额度', w => Number.isFinite(w.windowDurationMins) && w.windowDurationMins >= 10080 && w.windowDurationMins % 10080 === 0)
-  ];
+  ].filter(r => Number.isFinite(r.percent));
+  if (rings.length < 2) return { ...single, mode: 'single', rings: null };
   return { ...single, mode: 'dual', rings,
-    title: ['Plus 剩余额度', ...rings.map(r => r.title), ...formatResetCredits(response)].join('\n') };
+    title: ['Codex 剩余额度', ...rings.map(r => r.title), ...formatResetCredits(response)].join('\n') };
 }
