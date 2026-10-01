@@ -23,6 +23,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const weekly = { rateLimits: { limitId: 'codex', planType: 'pro', primary: { usedPercent: 6, windowDurationMins: 300 }, secondary: { usedPercent: 27, windowDurationMins: 10080 } } };
 const plus = {rateLimits:{...weekly.rateLimits,planType:'plus'}};
 const plusMissing = {rateLimits:{...plus.rateLimits,primary:null}};
+const businessWeekly = {rateLimits:{limitId:'codex',planType:'self_serve_business_prolite',primary:{usedPercent:74,windowDurationMins:10080},secondary:null}};
 
 async function run() {
   if (macManager) {
@@ -72,6 +73,15 @@ async function run() {
     await page.waitForSelector('#codex-usage-tooltip:visible');
     assert.match(await page.locator('#codex-usage-tooltip').textContent(),/剩余73%/);
     await page.screenshot({path:path.join(root,'tests/preview-tooltip.png')});
+    await page.evaluate(v=>window.__codexUsageBadge.update(v),formatRateLimits(businessWeekly));
+    assert.equal(await page.locator('#codex-usage-badge .usage-number:visible').textContent(),'26%');
+    assert.equal(await page.locator('#codex-usage-badge .usage-window:visible').textContent(),'周额度');
+    assert.equal(await page.locator('#codex-usage-badge .usage-ring:visible').count(),1);
+    assert.equal(await page.locator('#codex-usage-badge').getAttribute('data-tone'),'warning');
+    assert.equal(await page.locator('#codex-usage-badge').getAttribute('aria-valuenow'),'26');
+    assert.match(await page.locator('#codex-usage-tooltip').textContent(),/当前显示：1周额度，剩余26%/);
+    assert.doesNotMatch(await page.locator('#codex-usage-tooltip').textContent(),/暂时无法读取/);
+    await page.evaluate(v=>window.__codexUsageBadge.update(v),formatRateLimits(weekly));
     await page.evaluate(()=>document.documentElement.classList.remove('dark'));
     await page.evaluate(()=>{document.documentElement.dataset.theme='light';document.body.style.color='#272c29';document.querySelector('nav').style.background='#f2f2f1';document.querySelector('aside').style.background='#fff';});
     await page.mouse.move(310,10);

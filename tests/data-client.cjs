@@ -15,9 +15,23 @@ assert.deepEqual(readings(mergeRateLimitsResponse(old,{rateLimitsByLimitId:{code
 assert.deepEqual(readings(mergeRateLimitsResponse(old,{rateLimits:{limitId:'reserve',primary:{usedPercent:100}}})),[96,84]);
 assert.deepEqual(readings(mergeRateLimitsResponse(old,{accountId:'test-new',rateLimits:{planType:'plus',primary:{usedPercent:20,windowDurationMins:300}}})),[80,null]);
 assert.equal(formatRateLimits(mergeRateLimitsResponse(old,{rateLimits:{planType:'pro',primary:{usedPercent:20,windowDurationMins:300}}})).percent,null);
+const businessWeekly={rateLimits:{limitId:'codex',planType:'self_serve_business_prolite',primary:{usedPercent:74,windowDurationMins:10080},secondary:null},rateLimitResetCredits:{availableCount:1}};
+const businessValue=formatRateLimits(businessWeekly);
+assert.equal(businessValue.percent,26);
+assert.equal(businessValue.windowLabel,'周');
+assert.equal(businessValue.tone,'warning');
+assert.equal(businessValue.mode,'single');
+assert.equal(businessValue.rings,null);
+assert.match(businessValue.title,/当前显示：1周额度，剩余26%/);
+assert.match(businessValue.title,/重置卡：1 张可用/);
+assert.doesNotMatch(businessValue.title,/暂时无法读取/);
+assert.equal(formatRateLimits({rateLimits:{...businessWeekly.rateLimits,primary:{usedPercent:20,windowDurationMins:300}}}).percent,null);
+assert.equal(formatRateLimits({rateLimits:{...businessWeekly.rateLimits,primary:{windowDurationMins:10080}}}).percent,null);
+assert.equal(formatRateLimits({rateLimitsByLimitId:{codex:businessWeekly.rateLimits}}).percent,26);
+assert.equal(formatRateLimits({rateLimits:{...snapshot,planType:'self_serve_business_prolite'}}).percent,84);
 for(const resetsAt of [null,undefined,-1,0,NaN,Infinity,1e100])assert.doesNotThrow(()=>formatRateLimits({rateLimits:{...snapshot,primary:{...snapshot.primary,resetsAt}}}));
 for(const [remaining,tone] of [[100,'normal'],[51,'normal'],[50,'warning'],[10,'warning'],[9,'danger'],[0,'danger']]) {
-  for(const planType of ['plus','pro','prolite']) {
+  for(const planType of ['plus','pro','prolite','self_serve_business_prolite']) {
     const value=formatRateLimits({rateLimits:{...snapshot,planType,primary:{...snapshot.primary,usedPercent:100-remaining},secondary:{...snapshot.secondary,usedPercent:100-remaining}}});
     assert.equal(value.tone,tone);
     if(value.rings)assert.deepEqual(value.rings.map(r=>r.tone),[tone,tone]);
