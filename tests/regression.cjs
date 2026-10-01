@@ -20,9 +20,10 @@ h2{font-size:13px;opacity:.45;font-weight:500;margin:0 0 20px}p{margin:0 0 10px;
 input{width:180px;margin:12px;border:1px solid #555;border-radius:6px;background:transparent;color:inherit}
 </style><nav data-app-navigation-rail="true"><div class="items"><button aria-label="Tasks">▤</button><button aria-label="Plugins">◇</button></div><div class="footer"><button class="help" aria-label="Help menu">ⓘ</button><button class="avatar" aria-label="Open profile menu">AB</button></div></nav><aside><h2>项目</h2><p>示例任务一</p><p>示例任务二</p><p class="selected">用量进度条</p><input id="typing" aria-label="Editor" value="继续编辑"></aside></html>`;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-const weekly = { rateLimits: { limitId: 'codex', planType: 'pro', primary: { usedPercent: 6, windowDurationMins: 300 }, secondary: { usedPercent: 27, windowDurationMins: 10080 } } };
-const plus = {rateLimits:{...weekly.rateLimits,planType:'plus'}};
+const weekly = { rateLimits: { limitId: 'codex', planType: 'pro', primary: null, secondary: { usedPercent: 27, windowDurationMins: 10080 } } };
+const plus = {rateLimits:{...weekly.rateLimits,planType:'plus',primary:{usedPercent:6,windowDurationMins:300}}};
 const plusMissing = {rateLimits:{...plus.rateLimits,primary:null}};
+const businessWeekly = {rateLimits:{limitId:'codex',planType:'self_serve_business_prolite',primary:{usedPercent:74,windowDurationMins:10080},secondary:null}};
 
 async function run() {
   if (macManager) {
@@ -38,8 +39,9 @@ async function run() {
   assert.equal(formatRateLimits(plus).mode, 'dual');
   assert.deepEqual(formatRateLimits(plus).rings.map(r=>r.percent),[94,73]);
   assert.deepEqual(formatRateLimits({rateLimits:{...plus.rateLimits,primary:plus.rateLimits.secondary,secondary:plus.rateLimits.primary}}).rings.map(r=>r.percent),[94,73]);
-  assert.deepEqual(formatRateLimits(plusMissing).rings.map(r=>r.percent),[null,73]);
-  assert.deepEqual(formatRateLimits({rateLimits:{...plus.rateLimits,primary:null,secondary:null}}).rings.map(r=>r.percent),[null,null]);
+  assert.equal(formatRateLimits(plusMissing).mode,'single');
+  assert.equal(formatRateLimits(plusMissing).percent,73);
+  assert.equal(formatRateLimits({rateLimits:{...plus.rateLimits,primary:null,secondary:null}}).percent,null);
   assert.equal(formatRateLimits({rateLimits:{...weekly.rateLimits,secondary:null}}).percent, null);
   assert.equal(isMainWindow({url:'app://-/index.html'}), true);
   for (const url of ['https://example.com/index.html','app://-/overlay/index.html','app://-/index.html?overlay=1','devtools://devtools/index.html']) assert.equal(isMainWindow({url}),false);
@@ -72,6 +74,15 @@ async function run() {
     await page.waitForSelector('#codex-usage-tooltip:visible');
     assert.match(await page.locator('#codex-usage-tooltip').textContent(),/剩余73%/);
     await page.screenshot({path:path.join(root,'tests/preview-tooltip.png')});
+    await page.evaluate(v=>window.__codexUsageBadge.update(v),formatRateLimits(businessWeekly));
+    assert.equal(await page.locator('#codex-usage-badge .usage-number:visible').textContent(),'26%');
+    assert.equal(await page.locator('#codex-usage-badge .usage-window:visible').textContent(),'周额度');
+    assert.equal(await page.locator('#codex-usage-badge .usage-ring:visible').count(),1);
+    assert.equal(await page.locator('#codex-usage-badge').getAttribute('data-tone'),'warning');
+    assert.equal(await page.locator('#codex-usage-badge').getAttribute('aria-valuenow'),'26');
+    assert.match(await page.locator('#codex-usage-tooltip').textContent(),/当前显示：1周额度，剩余26%/);
+    assert.doesNotMatch(await page.locator('#codex-usage-tooltip').textContent(),/暂时无法读取/);
+    await page.evaluate(v=>window.__codexUsageBadge.update(v),formatRateLimits(weekly));
     await page.evaluate(()=>document.documentElement.classList.remove('dark'));
     await page.evaluate(()=>{document.documentElement.dataset.theme='light';document.body.style.color='#272c29';document.querySelector('nav').style.background='#f2f2f1';document.querySelector('aside').style.background='#fff';});
     await page.mouse.move(310,10);
@@ -139,7 +150,19 @@ async function run() {
     }
     assert.deepEqual(await badge.locator('.usage-number').allTextContents(),['0%','100%']);
     await page.evaluate(v=>window.__codexUsageBadge.update(v),formatRateLimits(plusMissing));
-    assert.deepEqual(await badge.locator('.usage-number').allTextContents(),['—','73%']);
+    assert.equal(await rings.count(),1);
+    assert.deepEqual(await badge.locator('.usage-number:visible').allTextContents(),['73%']);
+    assert.deepEqual(await badge.locator('.usage-window:visible').allTextContents(),['周额度']);
+    await page.evaluate(v=>window.__codexUsageBadge.update(v),formatRateLimits({rateLimits:{...plus.rateLimits,secondary:null}}));
+    assert.equal(await rings.count(),1);
+    assert.deepEqual(await badge.locator('.usage-number:visible').allTextContents(),['94%']);
+    assert.deepEqual(await badge.locator('.usage-window:visible').allTextContents(),['5h额度']);
+    await page.evaluate(v=>window.__codexUsageBadge.update(v),formatRateLimits({rateLimits:{...plus.rateLimits,planType:'unknown'}}));
+    assert.equal(await rings.count(),2);
+    assert.deepEqual(await badge.locator('.usage-number:visible').allTextContents(),['94%','73%']);
+    await badge.hover();
+    await page.waitForSelector('#codex-usage-tooltip:visible');
+    assert.match(await page.locator('#codex-usage-tooltip').textContent(),/^Codex 剩余额度/);
     await page.evaluate(v=>window.__codexUsageBadge.update({...v,updatedAt:Date.now()-150001,stale:false}),formatRateLimits(plus));
     assert.equal(await page.evaluate(()=>window.__codexUsageBadge.status().stale),true);
     assert.deepEqual(await badge.locator('.usage-number').allTextContents(),['—','—']);

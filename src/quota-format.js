@@ -26,8 +26,7 @@ function formatPrimaryRateLimits(response) {
   const snapshot = pickCodexSnapshot(response);
   const windows = [snapshot?.primary, snapshot?.secondary].filter(validWindow);
   const weekly = w => Number.isFinite(w.windowDurationMins) && w.windowDurationMins >= 10080 && w.windowDurationMins % 10080 === 0;
-  const plan = String(snapshot?.planType ?? response?.planType ?? '').toLowerCase();
-  const window = plan.startsWith('pro') ? windows.find(weekly) : windows.find(w=>w.windowDurationMins === 300) ?? (!plan ? windows.find(weekly) : null);
+  const window = windows.find(w=>w.windowDurationMins === 300) ?? windows.find(weekly);
   const details = windows.map(w=>`${durationLabel(w.windowDurationMins)}：剩余 ${remainingPercent(w.usedPercent)}%${formatResetTime(w.resetsAt) ? `，${formatResetTime(w.resetsAt)} 重置` : ''}`);
   const percent = window ? remainingPercent(window.usedPercent) : null;
   return {percent, windowLabel: window && weekly(window) ? '周' : '', tone:quotaTone(percent),
