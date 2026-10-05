@@ -34,6 +34,7 @@ const api=require('../agent.cjs');
       assert.equal(await page.evaluate(()=>Object.keys(localStorage).some(k=>k.startsWith('codex-usage-badge.'))),false);
       assert.equal(await page.evaluate(()=>localStorage.getItem('unrelated-setting')),'keep');
       assert.equal(await page.locator('#editor').evaluate(el=>el===document.activeElement),true);
+      assert.equal(await page.evaluate(()=>!!window.__codexThreadMetrics||!!window.__codexThreadPerformance||!!window.__codexThreadMetricsAccount),false,'cleanup must remove the metrics UI and its passive native listeners');
     }
     await main('cleanup'); // repeated cleanup is safe
     await assert.rejects(main('invalid-action'),/用法/);

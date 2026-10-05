@@ -3,7 +3,7 @@
   "version": "0.9.4",
   "windowsVersion": "0.10.1",
   "private": true,
-  "description": "Local desktop quota rings, project colors, folder sizes and Token indicators for Codex",
+  "description": "Local Codex quota rings, project colors, folder sizes, Token indicators and conversation metrics below the composer",
   "license": "MIT",
   "engines": {
     "node": ">=24"

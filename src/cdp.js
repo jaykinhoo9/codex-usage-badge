@@ -5,7 +5,8 @@ function isMainWindow(target) {
   } catch {return false;}
 }
 function buildBootstrapScript() {
-  return [installUsageBadge,installProjectColors,installProjectSizes,installThreadTokens].map(fn=>`(${fn.toString()})()`).join(';\n');
+  const monitor = `(${installThreadPerformanceMonitor.toString()})(${createThreadPerformanceTracker.toString()})`;
+  return [`(${installThreadMetricsAccountScope.toString()})()`, monitor, ...[installUsageBadge,installProjectColors,installProjectSizes,installThreadTokens,installThreadMetrics].map(fn=>`(${fn.toString()})()`)].join(';\n');
 }
 class CdpSession {
   constructor(target) {this.target=target;this.pending=new Map();this.serial=0;this.socket=null;}

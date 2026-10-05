@@ -32,14 +32,18 @@ try {
     Date,setInterval:(fn,ms)=>{timers.push({fn,ms});return timers.length;},clearInterval:id=>cleared.push(id),
     RendererInjector:class {constructor(){this.sessions=new Map();}async scan(){} stop(){stopped++;}},
     AppServerClient:class{},ThreadTokenReader:class{},refreshThreadTokens:async()=>{},resolveCodexBin:()=> 'fixture',
+    ThreadMetricsReader:class{},installThreadMetrics:noop,
+    createThreadPerformanceTracker:noop,installThreadPerformanceMonitor:noop,
+    installThreadMetricsAccountScope:noop,
+    ThreadMetricsStore:class{stop(){}},
     unavailableValue:v=>v,installUsageBadge:noop,installProjectColors:noop,installThreadTokens:noop,installProjectSizes:noop,ProjectSizeScanner:class{stop(){}},refreshProjectSizes:noop,measureDirectory:noop,measureDirectoryPortable:noop,measureProjectRoots:noop,
     buildBootstrapScript:noop,formatRateLimits:noop,mergeRateLimitsResponse:noop,isMainWindow:noop
   };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/agent-main.js'),'utf8'),sandbox);
   await sandbox.module.exports.main();
-  assert.deepEqual(timers.map(t=>t.ms),[5000,500]);
-  timers[1].fn();assert.equal(stopped,0);assert.equal(exited,null);
-  exists=true;timers[1].fn();assert.equal(stopped,1);assert.equal(exited,0);assert.deepEqual(cleared,[1,2]);
+  assert.deepEqual(timers.map(t=>t.ms),[5000,200,500]);
+  timers[2].fn();assert.equal(stopped,0);assert.equal(exited,null);
+  exists=true;timers[2].fn();assert.equal(stopped,1);assert.equal(exited,0);assert.deepEqual(cleared,[1,2,3]);
   assert.match(AppServerClient.toString(),/windowsHide: true/);
   console.log('PASS Windows graceful stop file closes injector and clears timers; CLI spawn hides console');
 })().catch(error=>{console.error(error);process.exitCode=1;});
