@@ -37,6 +37,10 @@ jobs:
         if: runner.os == 'Windows'
         shell: powershell
         run: ./tests/windows-native.ps1
+      - name: Windows manual Store launcher
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: ./tests/windows-launch.ps1
       - name: Windows update archive validation
         shell: pwsh
         run: ./tests/windows-update.ps1

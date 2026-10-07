@@ -16,6 +16,17 @@ const {NativeBridge,readReceipt,writeReceipt}=require('../startup/windows.cjs');
     assert.equal(readReceipt(receipt).lastAttemptAt,123);
     writeReceipt(receipt,{...readReceipt(receipt),event:'watching'});
     assert.equal(readReceipt(receipt).lastAttemptAt,123);
+    for(const code of ['EPERM','EACCES','EBUSY']) {
+      let locked=3;const waits=[];
+      writeReceipt(receipt,{lastAttemptAt:123,event:'retry-complete'},{rename:(from,to)=>{if(locked-->0)throw Object.assign(Error('sharing violation'),{code});fs.renameSync(from,to);},wait:ms=>waits.push(ms)});
+      assert.equal(readReceipt(receipt).event,'retry-complete');assert.deepEqual(waits,[25,25,25]);
+    }
+    let attempts=0,totalWait=0;
+    assert.throws(()=>writeReceipt(receipt,{lastAttemptAt:999,event:'must-not-persist'},{rename:()=>{attempts++;throw Object.assign(Error('sharing violation'),{code:'EACCES'});},wait:ms=>totalWait+=ms}),/sharing violation/);
+    assert.equal(attempts,13);assert.equal(totalWait,300);
+    assert.equal(readReceipt(receipt).lastAttemptAt,123);
+    assert.throws(()=>writeReceipt(receipt,{lastAttemptAt:999},{rename:()=>{throw Object.assign(Error('invalid argument'),{code:'EINVAL'});},wait:()=>assert.fail('Unexpected retry for a permanent error')}),/invalid argument/);
+    assert.equal(fs.readdirSync(temp).some(name=>name.includes('.tmp-')),false);
     fs.writeFileSync(receipt,'{"lastAttemptAt":"bad"}');assert.throws(()=>readReceipt(receipt),/Invalid/);
     fs.writeFileSync(receipt,'broken');assert.throws(()=>readReceipt(receipt));
     let child,args,opts;

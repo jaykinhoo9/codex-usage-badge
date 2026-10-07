@@ -54,10 +54,18 @@ function readReceipt(file) {
   if(!Number.isFinite(state.lastAttemptAt??0)||(state.lastAttemptAt??0)<0)throw Error('Invalid startup receipt');
   return state;
 }
-function writeReceipt(file,state) {
-  const temp=file+'.tmp';const fd=fs.openSync(temp,'w',0o600);
-  try{fs.writeFileSync(fd,JSON.stringify(state,null,2)+'\n');fs.fsyncSync(fd);}finally{fs.closeSync(fd);}
-  fs.renameSync(temp,file);
+function writeReceipt(file,state,{rename=fs.renameSync,wait=ms=>Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,ms)}={}) {
+  const temp=file+'.tmp-'+require('node:crypto').randomUUID();const fd=fs.openSync(temp,'w',0o600);
+  // PowerShell status polling and antivirus can briefly hold a Windows handle
+  // without FILE_SHARE_DELETE. Preserve atomic receipts; retry only sharing
+  // failures, and never continue to a quit request without durable state.
+  try {
+    try{fs.writeFileSync(fd,JSON.stringify(state,null,2)+'\n');fs.fsyncSync(fd);}finally{fs.closeSync(fd);}
+    for(let attempt=0;;attempt++) {
+      try {rename(temp,file);break;}
+      catch(error) {if(!['EPERM','EACCES','EBUSY'].includes(error.code)||attempt>=12)throw error;wait(25);}
+    }
+  } finally {fs.rmSync(temp,{force:true});}
 }
 async function main() {
   const root=path.dirname(__dirname),receipt=path.join(__dirname,'state.json');

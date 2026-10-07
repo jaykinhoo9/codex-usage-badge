@@ -477,6 +477,55 @@ function Get-DebugPages {
             Where-Object { $_.url -match '^app://-/index\.html(?:[?#]|$)' -and $_.url -notmatch '(?i)overlay' }
     } catch {}
 }
+function Get-DesktopApplicationId([string]$Path) {
+    if (Get-Command Get-AppxPackage -ErrorAction SilentlyContinue) {
+        foreach ($pkg in @(Get-AppxPackage -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^OpenAI\.(Codex|ChatGPT)(\.|$)' })) {
+            if (!$Path.StartsWith($pkg.InstallLocation + '\', [StringComparison]::OrdinalIgnoreCase)) { continue }
+            $manifest = Get-AppxPackageManifest -Package $pkg.PackageFullName
+            foreach ($app in @($manifest.Package.Applications.Application)) {
+                if (![string]$app.Executable) { continue }
+                $candidate = Join-Path $pkg.InstallLocation ([string]$app.Executable)
+                if ($candidate -ieq $Path) { return $pkg.PackageFamilyName + '!' + [string]$app.Id }
+            }
+            throw 'Cannot resolve Store application identity; direct executable fallback was not attempted.'
+        }
+    }
+    if ($Path -match '(?i)[/\\]WindowsApps[/\\]') { throw 'Cannot resolve Store package; direct executable fallback was not attempted.' }
+    return $null
+}
+function Invoke-StoreApplication([string]$Identity, [string]$Arguments) {
+        if (!('CodexUsageBadge.StoreLauncher' -as [type])) {
+            Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+namespace CodexUsageBadge {
+    [ComImport, Guid("45BA127D-10A8-46EA-8AB7-56EA9078943C")]
+    internal class ActivationManager {}
+    [ComImport, Guid("2E941141-7F97-4756-BA1D-9DECDE894A3D"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    internal interface IActivationManager {
+        [PreserveSig] int ActivateApplication([MarshalAs(UnmanagedType.LPWStr)] string id, [MarshalAs(UnmanagedType.LPWStr)] string args, uint options, out uint pid);
+    }
+    public static class StoreLauncher {
+        public static uint Launch(string id, string args) {
+            object manager = new ActivationManager();
+            try { uint pid; int result = ((IActivationManager)manager).ActivateApplication(id, args, 2, out pid); if (result < 0) Marshal.ThrowExceptionForHR(result); return pid; }
+            finally { Marshal.ReleaseComObject(manager); }
+        }
+    }
+}
+'@
+        }
+        [void][CodexUsageBadge.StoreLauncher]::Launch($Identity, $Arguments)
+}
+function Start-DesktopApplication([string]$Path) {
+    $flags = '--remote-debugging-address=127.0.0.1 --remote-debugging-port=39222'
+    $identity = Get-DesktopApplicationId $Path
+    if ($identity) {
+        Invoke-StoreApplication $identity $flags
+    } else {
+        Start-Process -FilePath $Path -ArgumentList $flags -WindowStyle Hidden | Out-Null
+    }
+}
 function Launch-Badge {
     Assert-OwnedDirectory $script:InstallRoot
     if (!(Test-Path -LiteralPath $script:ConfigPath)) { throw '尚未安装，请先运行 Install.cmd。' }
@@ -490,7 +539,7 @@ function Launch-Badge {
     })
     if ($running.Count -gt 0) { throw '客户端已运行，但没有开启用量条连接。请从托盘菜单或客户端菜单完全退出，再运行 Launch.cmd。不会强制结束你的会话。' }
     # Only this explicit user action starts the GUI. The Run action cannot call this function.
-    Start-Process -FilePath $config.AppExe -ArgumentList '--remote-debugging-address=127.0.0.1 --remote-debugging-port=39222' | Out-Null
+    Start-DesktopApplication $config.AppExe
     for ($i = 0; $i -lt 30; $i++) {
         if (@(Get-DebugPages).Count -gt 0) { return }
         Start-Sleep -Seconds 1
