@@ -26,7 +26,9 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npx playwright install chromium --only-shell
       - run: python scripts/build_release.py
+      - run: python scripts/build_remote_tokens.py
       - run: npm test
+      - run: python tests/remote-token-reader.py
       - name: macOS native startup helper
         if: runner.os == 'macOS'
         run: node tests/startup-native.cjs .devtools/macos-startup-bridge
@@ -44,4 +46,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: powershell
         run: ./tests/windows-startup-native.ps1
+      - name: Native optional SSH connector launcher
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: ./tests/remote-token-native.ps1
       - run: python scripts/audit_release.py

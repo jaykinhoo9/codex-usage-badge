@@ -1,0 +1,12 @@
+{
+  "sshHost": "my-server",
+  "expectedHostName": null,
+  "sshUser": null,
+  "sshPort": null,
+  "hostIds": ["remote-ssh-discovered:server.example"],
+  "readerPath": "~/.local/share/codex-usage-badge/remote_reader.py",
+  "codexHome": null,
+  "localPort": 39223,
+  "remotePort": 43003,
+  "refreshMs": 5000
+}

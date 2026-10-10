@@ -24,3 +24,5 @@ tests/artifacts/
 backups/
 .devtools/
 状态.json
+remote-tokens/ui.cjs
+remote-tokens/.remote-token.*

@@ -28,6 +28,8 @@ node tests/startup-native.cjs .devtools/macos-startup-bridge
 
 PowerShell 测试：`pwsh -File tests/windows.ps1`。Windows CI 还会运行 `tests/windows-native.ps1`，验证安装、快捷方式、后台停止和卸载。
 
+可选 SSH 远程 Token：`python3 scripts/build_remote_tokens.py` 构建单独安装包，仅读取公共示例配置，不包含用户的 `config.json`。UI 直接复用 `src/thread-tokens-ui.js`；默认仅显示本地统计。`npm test` 包含远程协议、UI 与后台管道测试；`python3 tests/remote-token-reader.py` 验证只读服务。Linux 上可用隔离 PowerShell 运行 `python3 tests/remote-token-launcher.py` 验证启动控制流程。该安装包的名称与原版自动更新资产不同，不改变自动更新渠道。
+
 Windows 启动适配器测试：`powershell -NoProfile -ExecutionPolicy Bypass -File tests/windows-startup-native.ps1`。它仅操作临时隐藏应用，检查进程身份、Raw Input 活动分类、正常退出/拒绝及重开。`startup/` 为 Windows 适配器；macOS 保持原有 `macos/startup/` 实现。
 
 只构建 Windows：`python scripts/build_release.py --platform Windows`。其版本取自 `package.json` 的 `windowsVersion`，不修改 macOS 的 `version` 或已有发布附件。Windows 发布使用 `v<版本>-windows` 标签，只上传 Windows ZIP 和该 ZIP 的校验文件。

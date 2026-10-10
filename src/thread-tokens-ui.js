@@ -1,12 +1,17 @@
-function installThreadTokens() {
-  const VERSION = 7;
+function installThreadTokens(options = {}) {
+  const VERSION = 8;
   const KEY = '__codexThreadTokens';
   const ROW = '[data-app-action-sidebar-thread-row][data-app-action-sidebar-thread-id]';
   const MARK = 'data-codex-thread-tokens';
-  if (window[KEY]?.version === VERSION) { window[KEY].refresh(); return; }
+  const remoteHosts = new Set((options.remoteHosts ?? []).filter(host => typeof host === 'string' && host && host !== 'local'));
+  const remoteEnabled = remoteHosts.size > 0;
+  if (window[KEY]?.version === VERSION && (!remoteEnabled || window[KEY]?.remoteSupport === 1)) { window[KEY].refresh(); return; }
   window[KEY]?.destroy?.();
   let snapshot = { ok: false, totals: {}, checkedAt: null };
   let received = false;
+  let remoteSnapshot = { ok: false, totals: {}, checkedAt: null };
+  let remoteReceived = false;
+  let ownerCheckedAt = Date.now();
   let disposed = false;
   let refreshTimer = null;
   let tooltipTimer = null;
@@ -59,7 +64,8 @@ function installThreadTokens() {
     const host = row.getAttribute('data-app-action-sidebar-thread-host-id');
     const kind = row.getAttribute('data-app-action-sidebar-thread-kind');
     const match = /^local:([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$/i.exec(key);
-    return { key, id: match && host === 'local' && kind === 'local' ? match[1] : null };
+    const remote = !!match && remoteHosts.has(host) && kind === 'local';
+    return { key, remote, id: match && ((host === 'local' && kind === 'local') || remote) ? match[1] : null };
   }
   function level(total) {
     // Fixed thresholds keep the same color when the sidebar list changes.
@@ -81,7 +87,16 @@ function installThreadTokens() {
     return total.toLocaleString('zh-CN');
   }
   function reading(row) {
-    const { id } = identity(row);
+    const { id, remote } = identity(row);
+    if (remote) {
+      if (Number.isFinite(remoteSnapshot.checkedAt) && Date.now() - remoteSnapshot.checkedAt > 30000)
+        return { state: 'stale', detail: '远程 Token 用量数据已过期，正在等待重新连接' };
+      if (!remoteReceived) return { state: 'unknown', detail: '正在读取远程会话累计 Token' };
+      if (!remoteSnapshot.ok) return { state: 'unknown', detail: '暂时无法读取远程 Token 记录，正在自动重试' };
+      const total = remoteSnapshot.totals[id];
+      if (!Number.isSafeInteger(total) || total < 0) return { state: 'unknown', detail: '此会话暂无可读取的远程 Token 记录' };
+      return { level: level(total), state: 'ready', detail: `累计使用 ${formatTokens(total)} Token\n来源：SSH 远程会话` };
+    }
     if (!id) return { state: 'unknown', detail: '此会话暂无可读取的本地 Token 记录' };
     const stale = Number.isFinite(snapshot.checkedAt) && Date.now() - snapshot.checkedAt > 30000;
     if (stale) return { state: 'stale', detail: 'Token 用量数据已过期，正在等待重新连接' };
@@ -183,7 +198,10 @@ function installThreadTokens() {
   });
   observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true,
     attributeFilter: ['data-app-action-sidebar-thread-id', 'data-app-action-sidebar-thread-host-id', 'data-app-action-sidebar-thread-kind'] });
-  const freshnessTimer = setInterval(() => { for (const [row, badge] of badges) render(row, badge); }, 1000);
+  const freshnessTimer = setInterval(() => {
+    if (remoteEnabled && Date.now() - ownerCheckedAt > 20000) { window[KEY]?.restoreLocal(); return; }
+    for (const [row, badge] of badges) render(row, badge);
+  }, 1000);
   // Capture before the native sidebar can stop bubbling; movement also repairs missed enters.
   document.addEventListener('pointerover', onPointer, true);
   document.addEventListener('pointermove', onPointer, true);
@@ -195,8 +213,24 @@ function installThreadTokens() {
   window.addEventListener('resize', onLayout);
   window.addEventListener('blur', clearHover);
   window[KEY] = {
-    version: VERSION, refresh,
-    requestedIds() { return [...new Set([...document.querySelectorAll(ROW)].map(row => identity(row).id).filter(Boolean))].slice(0, 2000); },
+    version: VERSION, remoteSupport: remoteEnabled ? 1 : 0, refresh,
+    requestedIds() { return [...new Set([...document.querySelectorAll(ROW)].map(row => { const value = identity(row); return value.remote ? null : value.id; }).filter(Boolean))].slice(0, 2000); },
+    localSnapshot() { return { ...snapshot, totals: { ...snapshot.totals } }; },
+    keepAlive() { ownerCheckedAt = Date.now(); },
+    updateRemote(next) {
+      if (!remoteEnabled) return;
+      ownerCheckedAt = Date.now();
+      remoteSnapshot = { ok: next?.ok === true, checkedAt: Number.isFinite(next?.checkedAt) ? next.checkedAt : null,
+        totals: next?.totals && typeof next.totals === 'object' ? next.totals : {} };
+      remoteReceived = true; refresh();
+    },
+    restoreLocal() {
+      if (!remoteEnabled) return;
+      const saved = window[KEY].localSnapshot();
+      window[KEY].destroy();
+      installThreadTokens();
+      window[KEY].update(saved);
+    },
     update(next) {
       snapshot = { ok: next?.ok === true, checkedAt: Number.isFinite(next?.checkedAt) ? next.checkedAt : null,
         totals: next?.totals && typeof next.totals === 'object' ? next.totals : {} };
@@ -215,5 +249,6 @@ function installThreadTokens() {
       for (const badge of badges.values()) badge.remove(); badges.clear(); style.remove(); tooltip.remove(); delete window[KEY];
     }
   };
+  if (options.initialLocal) window[KEY].update(options.initialLocal);
   refresh();
 }
