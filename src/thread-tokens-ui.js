@@ -1,11 +1,11 @@
 function installThreadTokens() {
-  const VERSION = 7;
+  const VERSION = 8;
   const KEY = '__codexThreadTokens';
   const ROW = '[data-app-action-sidebar-thread-row][data-app-action-sidebar-thread-id]';
   const MARK = 'data-codex-thread-tokens';
   if (window[KEY]?.version === VERSION) { window[KEY].refresh(); return; }
   window[KEY]?.destroy?.();
-  let snapshot = { ok: false, totals: {}, checkedAt: null };
+  let snapshot = { ok: false, totals: {}, details: {}, checkedAt: null };
   let received = false;
   let disposed = false;
   let refreshTimer = null;
@@ -80,7 +80,7 @@ function installThreadTokens() {
     }
     return total.toLocaleString('zh-CN');
   }
-  function reading(row) {
+  function tokenReading(row) {
     const { id } = identity(row);
     if (!id) return { state: 'unknown', detail: '此会话暂无可读取的本地 Token 记录' };
     const stale = Number.isFinite(snapshot.checkedAt) && Date.now() - snapshot.checkedAt > 30000;
@@ -90,6 +90,28 @@ function installThreadTokens() {
     if (!snapshot.ok) return { state: 'unknown', detail: '暂时无法读取本地 Token 记录，正在自动重试' };
     if (!Number.isSafeInteger(total) || total < 0) return { state: 'unknown', detail: '此会话暂无可读取的本地 Token 记录' };
     return { level: level(total), state: 'ready', detail: `累计使用 ${formatTokens(total)} Token` };
+  }
+  function formatSessionBytes(bytes) {
+    if (!Number.isSafeInteger(bytes) || bytes < 0) return '暂不可用';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+    let value = bytes, index = 0;
+    while (value >= 1024 && index < units.length - 1) { value /= 1024; index++; }
+    return `${Number(value.toFixed(2))} ${units[index]}`;
+  }
+  function formatSessionDate(timestamp) {
+    if (!Number.isFinite(timestamp) || timestamp <= 0 || timestamp > 8.64e15) return '暂不可用';
+    return new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: '2-digit',
+      day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' })
+      .format(new Date(timestamp)).replaceAll('/', '-');
+  }
+  function reading(row) {
+    const value = tokenReading(row);
+    const { id } = identity(row);
+    const detail = snapshot.ok ? snapshot.details[id] : null;
+    return { ...value, detail: [value.detail,
+      `会话文件 ${formatSessionBytes(detail?.bytes)}`,
+      `创建时间 ${formatSessionDate(detail?.createdAt)}`,
+      `最后对话 ${formatSessionDate(detail?.chatAt)}`].join('\n') };
   }
   function hideTooltip() { clearTimeout(tooltipTimer); tooltipTimer = null; hovered = null; tooltip.hidden = true; }
   function positionTooltip() {
@@ -199,7 +221,8 @@ function installThreadTokens() {
     requestedIds() { return [...new Set([...document.querySelectorAll(ROW)].map(row => identity(row).id).filter(Boolean))].slice(0, 2000); },
     update(next) {
       snapshot = { ok: next?.ok === true, checkedAt: Number.isFinite(next?.checkedAt) ? next.checkedAt : null,
-        totals: next?.totals && typeof next.totals === 'object' ? next.totals : {} };
+        totals: next?.totals && typeof next.totals === 'object' ? next.totals : {},
+        details: next?.details && typeof next.details === 'object' ? next.details : {} };
       received = true; refresh();
     },
     status() { return { version: VERSION, badges: [...badges.values()].filter(el => el.isConnected).length,

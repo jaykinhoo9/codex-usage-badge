@@ -5,6 +5,8 @@ const path=require('node:path');
 const {DatabaseSync}=require('node:sqlite');
 const {chromium}=require('playwright');
 const {installThreadTokens,ThreadTokenReader,refreshThreadTokens}=require('../agent.cjs');
+const tooltip = text => `${text}\n会话文件 暂不可用\n创建时间 暂不可用\n最后对话 暂不可用`;
+const ariaLabel = text => tooltip(text).replaceAll('\n', '，');
 const ids=['00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000003'];
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'badge-tokens-'));
 const file=path.join(temp,'state_5.sqlite');
@@ -30,7 +32,7 @@ const fixture=`<!doctype html><html class="dark"><meta charset="UTF-8"><style>
 (async()=>{
  const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_EXECUTABLE_PATH || undefined});
  try{
-  const page=await browser.newPage({viewport:{width:420,height:420},deviceScaleFactor:2});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const page=await browser.newPage({viewport:{width:420,height:420},deviceScaleFactor:2,timezoneId:'Asia/Shanghai'});const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.setContent(fixture);await page.locator('#editor').focus();
   const heights=await page.locator('.row').evaluateAll(rows=>rows.map(r=>r.getBoundingClientRect().height));
   await page.evaluate(`(${installThreadTokens.toString()})()`);
@@ -64,20 +66,20 @@ const fixture=`<!doctype html><html class="dark"><meta charset="UTF-8"><style>
     const offlineSession={evaluate:async()=>{throw new Error('window disconnected')}};
     await refreshThreadTokens({sessions:new Map([['first',session],['second',secondSession],['offline',offlineSession]])},reader);
     assert.deepEqual(await second.evaluate(()=>window.receivedIds),[ids[1]],'each window receives only its own requested totals');
-    assert.equal(await second.locator('[data-codex-thread-tokens]').getAttribute('aria-label'),'累计使用 0 Token');
-    assert.equal(await squares.first().getAttribute('aria-label'),'累计使用 1.23千万 Token');
+    assert.equal(await second.locator('[data-codex-thread-tokens]').getAttribute('aria-label'),ariaLabel('累计使用 0 Token'));
+    assert.equal(await squares.first().getAttribute('aria-label'),ariaLabel('累计使用 1.23千万 Token'));
   } finally {await second.close();}
   await page.locator('[data-thread-title-trigger]').first().evaluate(el=>{
     for(const type of ['mouseover','pointerover','pointermove'])el.addEventListener(type,e=>e.stopPropagation());
   });
   await page.locator('[data-codex-thread-tokens]').first().hover();await page.waitForSelector('#codex-thread-tokens-tooltip:visible');
-  assert.equal(await page.locator('#codex-thread-tokens-tooltip').textContent(),'累计使用 1.23千万 Token');
+  assert.equal(await page.locator('#codex-thread-tokens-tooltip').textContent(),tooltip('累计使用 1.23千万 Token'));
   await page.screenshot({path:path.join(__dirname,'preview-thread-tokens.png')});
   const bounds=await squares.first().boundingBox();
   for(const [x,y] of [[bounds.x-4,bounds.y+6],[bounds.x+16,bounds.y+6],[bounds.x+6,bounds.y-4],[bounds.x+6,bounds.y+16]]) {
     await page.mouse.move(410,410);await page.mouse.move(x,y);
     await page.waitForSelector('#codex-thread-tokens-tooltip:visible',{timeout:1000});
-    assert.equal(await page.locator('#codex-thread-tokens-tooltip').textContent(),'累计使用 1.23千万 Token');
+    assert.equal(await page.locator('#codex-thread-tokens-tooltip').textContent(),tooltip('累计使用 1.23千万 Token'));
   }
   await page.locator('[data-thread-title]').first().hover();
   assert.equal(await page.locator('#codex-thread-tokens-tooltip').isVisible(),false,'moving onto the title must dismiss the token tooltip');
@@ -106,7 +108,7 @@ const fixture=`<!doctype html><html class="dark"><meta charset="UTF-8"><style>
   for(const [total,level,label] of [[0,0,'0'],[1,1,'1'],[9999,1,'9,999'],[10000,1,'1万'],[123456,1,'12.35万'],[999999,1,'100万'],[1000000,2,'100万'],[9999999,2,'1千万'],[10000000,3,'1千万'],[18488659,3,'1.85千万'],[99999999,3,'1亿'],[100000000,4,'1亿'],[450000000,4,'4.5亿']]) {
     put.run(ids[0],total,'PRIVATE TITLE');await refreshThreadTokens(injector,reader);
     assert.equal(await squares.first().getAttribute('data-level'),String(level));
-    assert.equal(await squares.first().getAttribute('aria-label'),`累计使用 ${label} Token`);
+    assert.equal(await squares.first().getAttribute('aria-label'),ariaLabel(`累计使用 ${label} Token`));
     palette.set(level,await squares.first().evaluate(n=>getComputedStyle(n).backgroundColor));
   }
   assert.equal(new Set(palette.values()).size,5,'each tier must have a distinct visible color');
@@ -119,11 +121,20 @@ const fixture=`<!doctype html><html class="dark"><meta charset="UTF-8"><style>
   await page.waitForFunction(()=>window.__codexThreadTokens.status().badges===5);
   await page.waitForTimeout(150);assert.equal(await page.locator('[data-codex-thread-tokens]').count(),5,'cloned rows must not duplicate badges');
   await page.waitForSelector('#codex-thread-tokens-tooltip:visible',{timeout:1000});
-  assert.equal(await page.locator('#codex-thread-tokens-tooltip').textContent(),'累计使用 0 Token','stationary pointer must recover after a row remount');
+  assert.equal(await page.locator('#codex-thread-tokens-tooltip').textContent(),tooltip('累计使用 0 Token'),'stationary pointer must recover after a row remount');
   await page.evaluate(()=>window.__codexThreadTokens.update({ok:true,totals:{},checkedAt:Date.now()-31000}));
   assert.deepEqual(await squares.evaluateAll(nodes=>nodes.map(n=>n.dataset.level)),['0','0','0','0','0']);
   await refreshThreadTokens(injector,emptyReader);assert.equal(await page.evaluate(()=>window.__codexThreadTokens.status().available),0);
-  await refreshThreadTokens(injector,reader);assert.equal(await squares.first().getAttribute('aria-label'),'累计使用 0 Token');
+  await refreshThreadTokens(injector,reader);assert.equal(await squares.first().getAttribute('aria-label'),ariaLabel('累计使用 0 Token'));
+  // All four lines use real metadata, with UTC timestamps rendered in the client timezone.
+  const detail={bytes:2048,createdAt:Date.UTC(2026,0,1,8,0,0),chatAt:Date.UTC(2026,0,2,3,39,13)};
+  await page.evaluate(({id,detail})=>window.__codexThreadTokens.update({ok:true,checkedAt:Date.now(),totals:{[id]:450000000},details:{[id]:detail}}),{id:ids[1],detail});
+  assert.equal(await squares.first().getAttribute('data-level'),'4','metadata must not change Token tiers');
+  await squares.first().hover();await page.waitForSelector('#codex-thread-tokens-tooltip:visible');
+  assert.equal(await page.locator('#codex-thread-tokens-tooltip').textContent(),'累计使用 4.5亿 Token\n会话文件 2 KB\n创建时间 2026-01-01 16:00:00\n最后对话 2026-01-02 11:39:13');
+  const tooltipBounds=await page.locator('#codex-thread-tokens-tooltip').boundingBox();
+  assert(tooltipBounds.x>=0&&tooltipBounds.y>=0&&tooltipBounds.x+tooltipBounds.width<=420&&tooltipBounds.y+tooltipBounds.height<=420);
+  await refreshThreadTokens(injector,reader);
   await page.evaluate(()=>document.documentElement.classList.remove('dark'));
   assert.notEqual(await squares.first().evaluate(n=>getComputedStyle(n).backgroundColor),palette.get(0));
   await page.setViewportSize({width:240,height:270});

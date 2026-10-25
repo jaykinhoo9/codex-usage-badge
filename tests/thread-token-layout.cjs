@@ -76,7 +76,7 @@ async function geometry(page) {
       assert.deepEqual(await page.evaluate(()=>[window.titleClicks,window.titleContextMenus]),[1,1]);
       await page.locator(`[${mark}]`).first().hover();
       await page.waitForSelector('#codex-thread-tokens-tooltip:visible');
-      assert.equal(await page.locator('#codex-thread-tokens-tooltip').textContent(),'累计使用 1.85千万 Token');
+      assert.equal(await page.locator('#codex-thread-tokens-tooltip').textContent(),'累计使用 1.85千万 Token\n会话文件 暂不可用\n创建时间 暂不可用\n最后对话 暂不可用');
       await page.mouse.move(375,415);
       if(width===330){
         const output=path.join(__dirname,'artifacts');fs.mkdirSync(output,{recursive:true});
