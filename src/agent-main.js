@@ -25,6 +25,7 @@ async function main() {
   log(`codex-usage-badge v${AGENT_VERSION} 启动：仅连接本机端口 ${options.port}，不启动、不退出、不激活客户端。`);
   const injector = new RendererInjector({ port: options.port, debug: options.debug, scanIntervalMs: 5000 });
   const tokenReader = new ThreadTokenReader();
+  const contextReader = new ContextWindowReader();
   const projectSizeScanner = new ProjectSizeScanner();
   let stopped = false;
   let client = null;
@@ -104,7 +105,7 @@ async function main() {
     await scan();
     // Quota requests can wait on the network; pending prevents overlap without delaying local reads.
     readUsage().catch(error => { if (!stopped) log(`额度刷新暂不可用：${error.message}`); });
-    await refreshThreadTokens(injector, tokenReader);
+    await Promise.all([refreshThreadTokens(injector, tokenReader), refreshContextWindows(injector, contextReader)]);
     await updateProjectSizes();
   };
   let ticking = false;
@@ -136,6 +137,7 @@ async function main() {
   await guardedTick();
 }
 module.exports = { installUsageBadge, installProjectColors, installProjectSizes, installThreadTokens, ThreadTokenReader, refreshThreadTokens,
+  installContextWindowIndicator, resolveComposerBinding, formatContextSnapshot, ContextWindowReader, refreshContextWindows,
   ProjectSizeScanner, measureDirectory, measureDirectoryPortable, measureProjectRoots, refreshProjectSizes,
   buildBootstrapScript, formatRateLimits, mergeRateLimitsResponse, isMainWindow, resolveCodexBin, AppServerClient, main };
 if (require.main === module) main().catch(error => { log(`agent 启动失败：${error.message}`); process.exitCode = 1; });

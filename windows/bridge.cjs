@@ -1,7 +1,7 @@
 'use strict';
 const { isMainWindow } = require('./agent.cjs');
 const expressions = {
-  cleanup: `(() => { window.__codexUsageBadge?.destroy?.(); window.__codexProjectColors?.destroy?.({clearStorage:true}); window.__codexThreadTokens?.destroy?.(); window.__codexProjectSizes?.destroy?.(); return !document.getElementById('codex-usage-badge') && !document.getElementById('codex-project-colors-style') && !document.getElementById('codex-thread-tokens-style') && !document.getElementById('codex-project-sizes-style'); })()`,
+  cleanup: `(() => { window.__codexUsageBadge?.destroy?.(); window.__codexProjectColors?.destroy?.({clearStorage:true}); window.__codexThreadTokens?.destroy?.(); window.__codexContextWindow?.destroy?.(); window.__codexProjectSizes?.destroy?.(); return !document.getElementById('codex-usage-badge') && !document.getElementById('codex-project-colors-style') && !document.getElementById('codex-thread-tokens-style') && !document.getElementById('codex-context-window-style') && !document.getElementById('codex-project-sizes-style'); })()`,
   status: `JSON.stringify({quota:!!window.__codexUsageBadge,folderColors:!!window.__codexProjectColors,threadTokens:!!window.__codexThreadTokens})`
 };
 async function evaluate(target, expression) {

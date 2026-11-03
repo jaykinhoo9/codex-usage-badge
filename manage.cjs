@@ -283,7 +283,7 @@ async function scheduleActivation(options={}) {
 }
 async function cleanupUi() {
   let pages=[];try{pages=await targets();}catch{return;}
-  const results=await Promise.allSettled(pages.map(page=>evaluate(page,'(() => {window.__codexUsageBadge?.destroy?.();window.__codexProjectColors?.destroy?.({clearStorage:true});window.__codexThreadTokens?.destroy?.();window.__codexProjectSizes?.destroy?.();return !document.getElementById("codex-usage-badge")&&!document.getElementById("codex-project-colors-style")&&!document.getElementById("codex-thread-tokens-style")&&!document.getElementById("codex-project-sizes-style");})()')));
+  const results=await Promise.allSettled(pages.map(page=>evaluate(page,'(() => {window.__codexUsageBadge?.destroy?.();window.__codexProjectColors?.destroy?.({clearStorage:true});window.__codexThreadTokens?.destroy?.();window.__codexContextWindow?.destroy?.();window.__codexProjectSizes?.destroy?.();return !document.getElementById("codex-usage-badge")&&!document.getElementById("codex-project-colors-style")&&!document.getElementById("codex-thread-tokens-style")&&!document.getElementById("codex-context-window-style")&&!document.getElementById("codex-project-sizes-style");})()')));
   if(results.some(r=>r.status==='rejected'||r.value!==true))console.warn('部分窗口暂不可连接；后台仍会卸载，残留界面将在下次打开客户端时消失。');
 }
 async function uninstall(){return operation(uninstallUnlocked);}

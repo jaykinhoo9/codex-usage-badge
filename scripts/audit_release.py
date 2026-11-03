@@ -19,8 +19,8 @@ patterns = [
 forbidden_parts = {'node_modules','vendor','backups','.devtools','__MACOSX'}
 forbidden_suffixes = {'.png','.jpg','.jpeg','.webp','.sqlite','.db','.log'}
 forbidden_names = {'auth.json','config.json','worker.json','.DS_Store','stop.request'}
-# Pin reviewed generated covers; retain the previous cover for immutable release archives. Screenshots stay blocked.
-approved_media = {'assets/cover.png': {'5639dcca0897c23304b63a3578a9f226984fe55cdbe51b62c381266b3d7ae9e6', 'a963d451cd700d8dbe8b7831ac30b9e813b23d5cd28144498192edf95ba93ce5'}}
+# Pin reviewed public demo images; unreviewed screenshots remain blocked.
+approved_media = {'assets/context-window.png': {'52db5c9d9c6f047999d79e1d9a8d5301c272b78ab7b27dcff32e16da6e381548'}, 'assets/cover.png': {'5639dcca0897c23304b63a3578a9f226984fe55cdbe51b62c381266b3d7ae9e6', 'a963d451cd700d8dbe8b7831ac30b9e813b23d5cd28144498192edf95ba93ce5'}}
 
 def inspect(name, data):
     p = Path(name)
