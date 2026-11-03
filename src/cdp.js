@@ -5,7 +5,8 @@ function isMainWindow(target) {
   } catch {return false;}
 }
 function buildBootstrapScript() {
-  return [installUsageBadge,installProjectColors,installProjectSizes,installThreadTokens].map(fn=>`(${fn.toString()})()`).join(';\n');
+  return [installUsageBadge,installProjectColors,installProjectSizes,installThreadTokens].map(fn=>`(${fn.toString()})()`).join(';\n') +
+    `;\n(${installContextWindowIndicator.toString()})(${resolveComposerBinding.toString()})`;
 }
 class CdpSession {
   constructor(target) {this.target=target;this.pending=new Map();this.serial=0;this.socket=null;}

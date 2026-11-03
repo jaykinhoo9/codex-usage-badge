@@ -32,6 +32,7 @@ try {
     Date,setInterval:(fn,ms)=>{timers.push({fn,ms});return timers.length;},clearInterval:id=>cleared.push(id),
     RendererInjector:class {constructor(){this.sessions=new Map();}async scan(){} stop(){stopped++;}},
     AppServerClient:class{},ThreadTokenReader:class{},refreshThreadTokens:async()=>{},resolveCodexBin:()=> 'fixture',
+    ContextWindowReader:class{},refreshContextWindows:async()=>{},installContextWindowIndicator:noop,resolveComposerBinding:noop,formatContextSnapshot:noop,
     unavailableValue:v=>v,installUsageBadge:noop,installProjectColors:noop,installThreadTokens:noop,installProjectSizes:noop,ProjectSizeScanner:class{stop(){}},refreshProjectSizes:noop,measureDirectory:noop,measureDirectoryPortable:noop,measureProjectRoots:noop,
     buildBootstrapScript:noop,formatRateLimits:noop,mergeRateLimitsResponse:noop,isMainWindow:noop
   };

@@ -10,6 +10,7 @@ __pycache__/
 *.zip
 *.png
 !assets/cover.png
+!assets/context-window.png
 *.jpg
 *.jpeg
 *.webp

@@ -31,6 +31,7 @@ const api=require('../agent.cjs');
     await main('cleanup');
     assert.deepEqual(output[1].windows,[true,true]);
     for(const page of pages){
+      assert.equal(await page.evaluate(()=>!!window.__codexContextWindow),false,'uninstall cleans the context indicator and its lifecycle');
       assert.equal(await page.evaluate(()=>Object.keys(localStorage).some(k=>k.startsWith('codex-usage-badge.'))),false);
       assert.equal(await page.evaluate(()=>localStorage.getItem('unrelated-setting')),'keep');
       assert.equal(await page.locator('#editor').evaluate(el=>el===document.activeElement),true);
